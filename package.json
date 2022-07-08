@@ -10,9 +10,9 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "react": "17.0.2",
+    "react": "18.0.0",
     "react-mixin": "^2.0.2",
-    "react-native": "0.65.1",
+    "react-native": "0.69.1",
     "react-native-fs": "^2.18.0",
     "react-native-gesture-handler": "^1.10.3",
     "react-native-safe-area-context": "^3.3.0",
