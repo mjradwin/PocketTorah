@@ -9,7 +9,6 @@
 import React from 'react';
 import type {Node} from 'react';
 import {
-  AppRegistry,
   StyleSheet,
   Text,
   View,
@@ -18,9 +17,8 @@ import {
   ActivityIndicator,
   Button,
   Modal,
-  Slider,
-  SafeAreaView,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 
 const RNFS = require('react-native-fs');
 
