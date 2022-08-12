@@ -31,8 +31,8 @@ var reactMixin = require('react-mixin');
 var TimerMixin = require('react-timer-mixin');
 
 import aliyahData from './data/aliyah.json';
-import { HDate, HebrewCalendar, ParshaEvent, Locale } from '@hebcal/core';
-import { getLeyningForParshaHaShavua, formatAliyahWithBook } from '@hebcal/leyning';
+import { HDate, HebrewCalendar, ParshaEvent, Locale, parshiot as hebcalParshiot } from '@hebcal/core';
+import { getLeyningForParshaHaShavua, getLeyningForParsha } from '@hebcal/leyning';
 
 // Import Texts
 import Amos from './data/torah/json/Amos.json';
@@ -169,6 +169,65 @@ const parshaNames = [
   'Vezot Haberakhah',
 ];
 
+const parshaNameMap = {
+  "Beha'alotcha": 'Beha’alotcha',
+  "Sh'lach": 'Sh’lach',
+  Vaetchanan: 'Va’ethanan',
+  "Re'eh": 'Re’eh',
+  "Ha'Azinu": 'Haazinu',
+};
+
+const haftAlias = {
+  'I Kings': 'Kings_1',
+  'II Kings': 'Kings_2',
+};
+
+function hebcalReadingToInternalFormat(parshaName, parshaNum, reading) {
+  const haft = Array.isArray(reading.haft) ? reading.haft : [reading.haft];
+  const id = parshaNum;
+  const name = parshaName;
+  const name2 = parshaNames[id] || name;
+  const parashah = {
+    haftara: haft.map(a => {
+      const book = haftAlias[a.k] || a.k;
+      return `${book} ${a.b} - ${a.e}`;
+    }),
+    ref: reading.summary,
+    name: name2.replace(/[ ’]/g, '\''),
+    hebrew: Locale.lookupTranslation(name, 'he'),
+    id: id,
+  };
+  const aliyot = [];
+  for (const [num, aliyah] of Object.entries(reading.fullkriyah)) {
+    aliyot.push({
+      _num: num,
+      _begin: aliyah.b,
+      _end: aliyah.e,
+      _numverses: aliyah.v,
+    });
+  }
+  const parshahLookup = {
+    _id: parshaNames[parashah.id],
+    _haftara: parashah.haftara.join('; '),
+    _haftaraLength: reading.haftaraNumV,
+    _verse: reading.summary.replace(/-/, ' - '),
+    _hebrew: parashah.hebrew,
+    maftirOffset: 0,
+    fullkriyah: {
+      aliyah: aliyot,
+    },
+  };
+  if (reading.sephardic) {
+    parshahLookup._sephardic = reading.sephardic;
+  }
+  if (parashah.haftara.length > 1) {
+    const numvPart2 = haft[1].v;
+    parshahLookup._haftaraLength2 = numvPart2;
+    parshahLookup._haftaraLength -= numvPart2;
+  }
+  return parshahLookup;
+}
+
 class HomeScreen extends React.Component {
   static navigationOptions = {
     title:  "Home",
@@ -184,7 +243,8 @@ class HomeScreen extends React.Component {
     while (!parashah) {
       let date = new Date();
       date.setDate(date.getDate() + (6 - 1 - date.getDay() + 7) % 7 + weekOffset);
-      const hdate = new HDate(date);
+//      const hdate = new HDate(date);
+      const hdate = new HDate(28, 'Tamuz', 5795);
       const hyear = hdate.getFullYear();
       const sedra = HebrewCalendar.getSedra(hyear, false);
       const p = sedra.lookup(hdate);
@@ -196,7 +256,7 @@ class HomeScreen extends React.Component {
         const name = p.parsha.join('-');
         const name2 = parshaNames[id] || name;
         parashah = {
-          haftara: haft.map(formatAliyahWithBook),
+          haftara: haft.map(a => `${a.k} ${a.b} - ${a.e}`),
           ref: reading.summary,
           name: name2.replace(/[ ’]/g, '\''),
           hebrew: Locale.lookupTranslation(name, 'he'),
@@ -220,7 +280,7 @@ class HomeScreen extends React.Component {
 
     let parshahLookup = {
       _id: parshaNames[parashah.id],
-      _haftara: reading.haftara,
+      _haftara: parashah.haftara.join('; '),
       _haftaraLength: reading.haftaraNumV,
       _verse: reading.summary.replace(/-/, ' - '),
       _hebrew: parashah.hebrew,
@@ -229,11 +289,18 @@ class HomeScreen extends React.Component {
         aliyah: aliyot,
       },
     };
+    if (reading.sephardic) {
+      parshahLookup._sephardic = reading.sephardic;
+    }
+    if (parashah.haftara.length > 1) {
+      const numvPart2 = reading.haft[1].v;
+      parshahLookup._haftaraLength2 = numvPart2;
+      parshahLookup._haftaraLength -= numvPart2;
+    }
 
     for (let q = 0; q < aliyahData.parshiot.parsha.length; q++) {
       if (aliyahData.parshiot.parsha[q]._id.replace(/[ ’]/g, '\'') == parashah.name ) {
         parshahLookup.maftirOffset = aliyahData.parshiot.parsha[q].maftirOffset;
-        parshahLookup._haftara = aliyahData.parshiot.parsha[q]._haftara;
         break;
       }
     }
@@ -284,7 +351,17 @@ class TorahReadingsScreen extends React.Component {
   };
   render() {
     //convert parshah json to array
-    var parshahArray = aliyahData.parshiot.parsha.map(x => x);
+    var parshahArray = [];
+    for (let i = 0; i < hebcalParshiot.length; i++) {
+      const parshaName = hebcalParshiot[i];
+      const reading = getLeyningForParsha(parshaName);
+      const parshahLookup = hebcalReadingToInternalFormat(
+        parshaName,
+        i + 1,
+        reading,
+      );
+      parshahArray.push(parshahLookup);
+    }
 
     //create button for each parsha
     var content = parshahArray.map((obj) => (<CustomButton doOnPress={() => navigate('AliyahSelectScreen', { parshah: obj._id, haftara: obj._haftara, haftaraLength: obj._haftaraLength, haftaraLength2: obj._haftaraLength2, maftirOffset: obj.maftirOffset, aliyot: obj.fullkriyah.aliyah, originatingBook: obj._verse.split(" ")[0] })} buttonTitle={obj._id} />) );
