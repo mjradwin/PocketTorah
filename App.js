@@ -30,12 +30,9 @@ let timeChecker = "";
 var reactMixin = require('react-mixin');
 var TimerMixin = require('react-timer-mixin');
 
-
-
-import calendar from './data/calendar.json';
 import aliyahData from './data/aliyah.json';
-
-
+import { HDate, HebrewCalendar, ParshaEvent, Locale } from '@hebcal/core';
+import { getLeyningForParshaHaShavua, formatAliyahWithBook } from '@hebcal/leyning';
 
 // Import Texts
 import Amos from './data/torah/json/Amos.json';
@@ -114,7 +111,63 @@ class FooterButton extends React.Component {
   }
 }
 
-
+const parshaNames = [
+  '',
+  'Bereshit',
+  'Noach',
+  'Lech-Lecha',
+  'Vayera',
+  'Chayei Sara',
+  'Toldot',
+  'Vayetzei',
+  'Vayishlach',
+  'Vayeshev',
+  'Miketz',
+  'Vayigash',
+  'Vayechi',
+  'Shemot',
+  'Vaera',
+  'Bo',
+  'Beshalach',
+  'Yitro',
+  'Mishpatim',
+  'Terumah',
+  'Tetzaveh',
+  'Ki Tisa',
+  'Vayakhel',
+  'Pekudei',
+  'Vayikra',
+  'Tzav',
+  'Shmini',
+  'Tazria',
+  'Metzora',
+  'Achrei Mot',
+  'Kedoshim',
+  'Emor',
+  'Behar',
+  'Bechukotai',
+  'Bamidbar',
+  'Nasso',
+  'Beha’alotcha',
+  'Sh’lach',
+  'Korach',
+  'Chukat',
+  'Balak',
+  'Pinchas',
+  'Matot',
+  'Masei',
+  'Devarim',
+  'Va’ethanan',
+  'Eikev',
+  'Re’eh',
+  'Shoftim',
+  'Ki Teitzei',
+  'Ki Tavo',
+  'Nitzavim',
+  'Vayeilech',
+  'Haazinu',
+  'Vezot Haberakhah',
+];
 
 class HomeScreen extends React.Component {
   static navigationOptions = {
@@ -126,32 +179,67 @@ class HomeScreen extends React.Component {
     //figure out current parshah
     let parashah;
     let weekOffset = 1;
-
+    let reading;
 
     while (!parashah) {
       let date = new Date();
       date.setDate(date.getDate() + (6 - 1 - date.getDay() + 7) % 7 + weekOffset);
-      var day = date.getDate();
-      var month = date.getMonth()+1; //January is 0!
-      var year = date.getFullYear();
-      dateString = month + '/' + day + '/' + year;
-      console.log(dateString)
-      parashah = calendar[dateString];
+      const hdate = new HDate(date);
+      const hyear = hdate.getFullYear();
+      const sedra = HebrewCalendar.getSedra(hyear, false);
+      const p = sedra.lookup(hdate);
+      if (!p.chag) {
+        const parshaEvent = new ParshaEvent(hdate, p.parsha, false);
+        reading = getLeyningForParshaHaShavua(parshaEvent, false);
+        const haft = Array.isArray(reading.haft) ? reading.haft : [reading.haft];
+        const id = Array.isArray(p.num) ? 100 + p.num[0] : p.num;
+        const name = p.parsha.join('-');
+        const name2 = parshaNames[id] || name;
+        parashah = {
+          haftara: haft.map(formatAliyahWithBook),
+          ref: reading.summary,
+          name: name2.replace(/[ ’]/g, '\''),
+          hebrew: Locale.lookupTranslation(name, 'he'),
+          id: id,
+        };
+      }
       console.log(parashah)
       weekOffset += 1;
     }
 
-    let parshahLookup;
+    const aliyot = [];
+    for (const [num, aliyah] of Object.entries(reading.fullkriyah)) {
+      aliyot.push({
+        _num: num,
+        _begin: aliyah.b,
+        _end: aliyah.e,
+        _numverses: aliyah.v,
+      });
+    }
+    console.log(aliyot);
 
-    for (q = 0; q < aliyahData.parshiot.parsha.length; q++) {
+    let parshahLookup = {
+      _id: parshaNames[parashah.id],
+      _haftara: reading.haftara,
+      _haftaraLength: reading.haftaraNumV,
+      _verse: reading.summary.replace(/-/, ' - '),
+      _hebrew: parashah.hebrew,
+      maftirOffset: 0,
+      fullkriyah: {
+        aliyah: aliyot,
+      },
+    };
 
+    for (let q = 0; q < aliyahData.parshiot.parsha.length; q++) {
       if (aliyahData.parshiot.parsha[q]._id.replace(/[ ’]/g, '\'') == parashah.name ) {
-        parshahLookup = aliyahData.parshiot.parsha[q];
+        parshahLookup.maftirOffset = aliyahData.parshiot.parsha[q].maftirOffset;
+        parshahLookup._haftara = aliyahData.parshiot.parsha[q]._haftara;
         break;
       }
-
     }
+
     //</end current parshah lookup>
+    console.log(parshahLookup);
 
     return (
       <ScrollView>
@@ -621,7 +709,7 @@ class Verses extends React.Component {
         var book = this.props.book;
         var transBook = this.props.transBook;
         var lastWordIndex = 0;
-        for (q = 0; q < this.props.length; q++) {
+        for (let q = 0; q < this.props.length; q++) {
           if (!book.c[curChapter].v[curVerse]) {
             curChapter = curChapter + 1;
             curVerse = 0;
@@ -642,7 +730,7 @@ class Verses extends React.Component {
         if (this.props.length2) {
           var curChapter = parseInt(this.props.hafStart2.split(':')[0])-1;
           var curVerse = parseInt(this.props.hafStart2.split(':')[1])-1;
-          for (z = 0; z < this.props.length2; z++) {
+          for (let z = 0; z < this.props.length2; z++) {
             if (!book.c[curChapter].v[curVerse]) {
               curChapter = curChapter + 1;
               curVerse = 0;
