@@ -30,7 +30,7 @@ let timeChecker = "";
 var reactMixin = require('react-mixin');
 var TimerMixin = require('react-timer-mixin');
 
-import aliyahData from './data/aliyah.json';
+import maftirOffset from './data/maftirOffset.json';
 import { HDate, parshiot as hebcalParshiot } from '@hebcal/core';
 import { getLeyningOnDate, getLeyningForParsha } from '@hebcal/leyning';
 
@@ -144,13 +144,14 @@ function hebcalReadingToInternalFormat(reading) {
       return `${book} ${a.b} - ${a.e}`;
     })
     .join('; ');
+  const displayName = parshaNameMap[name] || name;
   const parshahLookup = {
-    _id: parshaNameMap[name] || name,
+    _id: displayName,
     _haftara: haftaraStr,
     _haftaraLength: reading.haftaraNumV,
     _verse: reading.summary.replace(/-/g, ' - '),
     _hebrew: reading.name.he,
-    maftirOffset: 0,
+    maftirOffset: maftirOffset[displayName],
     fullkriyah: {
       aliyah: aliyot,
     },
@@ -179,16 +180,7 @@ class HomeScreen extends React.Component {
     // const hdate = new HDate(19, 'Tishrei', 5783);
     const saturday = today.onOrAfter(6);
     const reading = getLeyningOnDate(saturday, false);
-    const displayName = parshaNameMap[reading.name.en] || reading.name.en;
-    console.log(reading);
     const parshahLookup = hebcalReadingToInternalFormat(reading);
-    for (let q = 0; q < aliyahData.parshiot.parsha.length; q++) {
-      if (aliyahData.parshiot.parsha[q]._id === displayName) {
-        parshahLookup.maftirOffset = aliyahData.parshiot.parsha[q].maftirOffset;
-        break;
-      }
-    }
-
     //</end current parshah lookup>
     console.log(parshahLookup);
 
