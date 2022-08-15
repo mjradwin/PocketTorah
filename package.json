@@ -10,6 +10,9 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@hebcal/core": "^3.42.2",
+    "@hebcal/leyning": "^4.18.1",
+    "@react-native-community/slider": "^4.3.0",
     "react": "18.0.0",
     "react-mixin": "^5.0.0",
     "react-native": "0.69.4",
